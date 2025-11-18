@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useGame } from './GameState'
 
 const TILE_TYPES = {
   plains: 'plains',
@@ -25,49 +26,57 @@ function tileClass(type) {
   }
 }
 
-function generateMap(cols = 35, rows = 24) {
-  // Lightweight procedural-ish map
-  const map = []
-  for (let y = 0; y < rows; y++) {
-    const row = []
-    for (let x = 0; x < cols; x++) {
-      const r = Math.random()
-      let type = 'plains'
-      if (r < 0.08) type = 'water'
-      else if (r < 0.16) type = 'forest'
-      else if (r < 0.22) type = 'mountain'
-      row.push({ x, y, type })
-    }
-    map.push(row)
-  }
-  // Place corner bases
-  map[0][0].base = 'blue'
-  map[0][cols - 1].base = 'green'
-  map[rows - 1][0].base = 'orange'
-  map[rows - 1][cols - 1].base = 'purple'
-  return map
+function BaseRing({ color }) {
+  const ring = color === 'blue' ? 'ring-sky-400/80' : color === 'green' ? 'ring-emerald-400/80' : color === 'orange' ? 'ring-amber-400/80' : 'ring-fuchsia-400/80'
+  return <div className={`absolute inset-0 rounded-sm ring-2 ${ring}`} />
 }
 
-function BoardCell({ cell }) {
+function StackBadge({ count, owner }) {
+  if (count <= 1) return null
+  const bg = owner === 'blue' ? 'bg-sky-500' : owner === 'green' ? 'bg-emerald-500' : owner === 'orange' ? 'bg-amber-500' : 'bg-fuchsia-500'
   return (
-    <div className={`relative w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-sm border border-black/30 ${tileClass(cell.type)} shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]`}>
-      {cell.base && (
-        <div className={`absolute inset-0 rounded-sm ring-2 ring-offset-0 ${
-          cell.base === 'blue' ? 'ring-sky-400/80' :
-          cell.base === 'green' ? 'ring-emerald-400/80' :
-          cell.base === 'orange' ? 'ring-amber-400/80' :
-          'ring-fuchsia-400/80'
-        }`}></div>
+    <div className={`absolute -top-2 -right-2 text-[10px] px-1 rounded ${bg} text-black shadow`}>{count}</div>
+  )
+}
+
+function EligibleGlow({ active }) {
+  if (!active) return null
+  return <div className="absolute inset-0 rounded-sm ring-2 ring-lime-400/70 animate-pulse" />
+}
+
+function UnitGlyph({ unit }) {
+  const col = unit.owner === 'blue' ? 'text-sky-300' : unit.owner === 'green' ? 'text-emerald-300' : unit.owner === 'orange' ? 'text-amber-300' : 'text-fuchsia-300'
+  const glyph = unit.type === 'Worker' ? '⛏️' : unit.type === 'Soldier' ? '⚔️' : '🪖'
+  return <span className={`drop-shadow ${col}`}>{glyph}</span>
+}
+
+function BoardCell({ cell, onClick, unitsHere, selectable, selected }) {
+  return (
+    <button onClick={onClick} className={`relative w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-sm border border-black/30 ${tileClass(cell.type)} shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] focus:outline-none`}> 
+      {cell.base && <BaseRing color={cell.base} />}
+      {cell.base && <div className="absolute inset-0 flex items-center justify-center text-xs">⌂</div>}
+      <EligibleGlow active={selectable} />
+      {unitsHere.length > 0 && (
+        <div className="absolute inset-0 flex items-center justify-center text-sm">
+          <UnitGlyph unit={unitsHere[0]} />
+        </div>
       )}
-      {cell.base && (
-        <div className="absolute inset-0 flex items-center justify-center text-xs">⌂</div>
-      )}
-    </div>
+      <StackBadge count={unitsHere.length} owner={unitsHere[0]?.owner} />
+      {selected && <div className="absolute inset-0 rounded-sm ring-2 ring-cyan-400/80" />}
+    </button>
   )
 }
 
 function GameBoard() {
-  const map = useMemo(() => generateMap(), [])
+  const { map, actions, utils, selectedId, eligible, units } = useGame()
+
+  const handleCell = (x, y, selectable) => () => {
+    if (selectable) {
+      actions.moveSelectedTo(x, y)
+      return
+    }
+    actions.selectCell(x, y)
+  }
 
   return (
     <div className="relative">
@@ -75,9 +84,21 @@ function GameBoard() {
       <div className="mx-auto w-max p-6 rounded-xl bg-black/20">
         <div className="origin-center" style={{ transform: 'rotateX(60deg) rotateZ(45deg)' }}>
           <div className="grid" style={{ gridTemplateColumns: `repeat(${map[0].length}, minmax(0, 1fr))` }}>
-            {map.flat().map((cell, idx) => (
-              <BoardCell key={`${cell.x}-${cell.y}-${idx}`} cell={cell} />
-            ))}
+            {map.flat().map((cell) => {
+              const stack = utils.unitsAt(cell.x, cell.y)
+              const selectable = eligible.has(`${cell.x},${cell.y}`)
+              const selected = stack.some((u) => u.id === selectedId)
+              return (
+                <BoardCell
+                  key={`${cell.x}-${cell.y}`}
+                  cell={cell}
+                  onClick={handleCell(cell.x, cell.y, selectable)}
+                  unitsHere={stack}
+                  selectable={selectable}
+                  selected={selected}
+                />
+              )
+            })}
           </div>
         </div>
       </div>

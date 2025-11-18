@@ -1,23 +1,31 @@
+import { useGame } from './GameState'
+
 function TurnCounter() {
+  const { currentPlayer, turn } = useGame()
+  const grad =
+    currentPlayer.id === 'blue'
+      ? 'from-sky-500 to-blue-500'
+      : currentPlayer.id === 'green'
+      ? 'from-emerald-500 to-green-500'
+      : currentPlayer.id === 'orange'
+      ? 'from-amber-500 to-orange-500'
+      : 'from-fuchsia-500 to-purple-500'
   return (
-    <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-sky-500 to-purple-500 p-1">
-      <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-white/90 text-sm">
-        Turn
+    <div className={`w-16 h-16 rounded-full bg-gradient-to-tr ${grad} p-1`}>
+      <div className="w-full h-full rounded-full bg-slate-900 flex flex-col items-center justify-center text-white/90 text-xs">
+        <div className="text-[10px] uppercase tracking-wide">Turn</div>
+        <div className="text-sm font-semibold">{turn}</div>
       </div>
     </div>
   )
 }
 
 function CombatLog() {
-  const logs = [
-    { t: 'Blue', m: "recruited a Soldier" },
-    { t: 'Orange', m: "built a Bridge" },
-    { t: 'Green', m: "attacked a Bandit" },
-  ]
+  const { logs } = useGame()
   return (
     <div className="bg-black/30 text-white/80 border border-white/10 rounded-xl p-3 text-sm max-h-28 overflow-y-auto">
       {logs.map((l, i) => (
-        <div key={i} className="py-0.5"><span className="text-sky-300">{l.t}:</span> {l.m}</div>
+        <div key={i} className="py-0.5"><span className="text-sky-300 capitalize">{l.t}:</span> {l.m}</div>
       ))}
     </div>
   )
